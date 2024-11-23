@@ -7,7 +7,7 @@ def compute_rmse(y_true, y_pred):
 
 def compute_accuracy(y_true, y_pred, threshold=10.0):
     correct = np.abs(y_true - y_pred) < threshold
-    accuracy = np.mean(correct) * 100  # Accuracy in percentage
+    accuracy = np.mean(correct) * 100  
     return accuracy
 
 class ReduceLROnPlateau:
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
         learning_rate = lr_scheduler.update(avg_loss[0][0], learning_rate)
 
-    # Training RMSE and accuracy
+    # training rmse
     y_pred_train = [model.forward(x_seq).item() for x_seq in X_train]
     y_pred_train = np.array(y_pred_train).reshape(-1, 1)
     y_pred_train = target_scaler.inverse_transform(y_pred_train)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     training_rmse = compute_rmse(y_train_original, y_pred_train)
     training_accuracy = compute_accuracy(y_train_original, y_pred_train)
 
-    # Test RMSE and accuracy
+    # testing rmse
     y_pred_test = [model.forward(x_seq).item() for x_seq in X_test]
     y_pred_test = np.array(y_pred_test).reshape(-1, 1)
     y_pred_test = target_scaler.inverse_transform(y_pred_test)
