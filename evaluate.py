@@ -1,59 +1,81 @@
-# evaluate.py
-
 import numpy as np
 from lstm import LSTM
 from preprocess import preprocess_data
+import os
+
+
+def load_model_parameters(model, num_layers):
+    """
+    Load the saved model parameters for each LSTM layer.
+    Handles LSTMCell attributes directly.
+    """
+    for i in range(num_layers):
+        try:
+            layer = model.layers[i]  # Access the LSTMCell object
+            layer.Wi = np.load(f'model/layer{i}_Wi.npy')
+            layer.Ui = np.load(f'model/layer{i}_Ui.npy')
+            layer.bi = np.load(f'model/layer{i}_bi.npy')
+            layer.Wf = np.load(f'model/layer{i}_Wf.npy')
+            layer.Uf = np.load(f'model/layer{i}_Uf.npy')
+            layer.bf = np.load(f'model/layer{i}_bf.npy')
+            layer.Wo = np.load(f'model/layer{i}_Wo.npy')
+            layer.Uo = np.load(f'model/layer{i}_Uo.npy')
+            layer.bo = np.load(f'model/layer{i}_bo.npy')
+            layer.Wc = np.load(f'model/layer{i}_Wc.npy')
+            layer.Uc = np.load(f'model/layer{i}_Uc.npy')
+            layer.bc = np.load(f'model/layer{i}_bc.npy')
+        except FileNotFoundError as e:
+            print(f"Error: Missing file for layer {i}. Ensure training saved all parameters.")
+            raise e
+
 
 def compute_rmse(y_true, y_pred):
+    """Compute Root Mean Squared Error."""
     return np.sqrt(np.mean((y_true - y_pred) ** 2))
 
-def load_model_parameters(model):
-    for i, layer in enumerate(model.layers):
-        layer.Wi = np.load(f'model/layer{i}_Wi.npy')
-        layer.Ui = np.load(f'model/layer{i}_Ui.npy')
-        layer.bi = np.load(f'model/layer{i}_bi.npy')
-        layer.Wf = np.load(f'model/layer{i}_Wf.npy')
-        layer.Uf = np.load(f'model/layer{i}_Uf.npy')
-        layer.bf = np.load(f'model/layer{i}_bf.npy')
-        layer.Wo = np.load(f'model/layer{i}_Wo.npy')
-        layer.Uo = np.load(f'model/layer{i}_Uo.npy')
-        layer.bo = np.load(f'model/layer{i}_bo.npy')
-        layer.Wc = np.load(f'model/layer{i}_Wc.npy')
-        layer.Uc = np.load(f'model/layer{i}_Uc.npy')
-        layer.bc = np.load(f'model/layer{i}_bc.npy')
+
+def compute_accuracy(y_true, y_pred, threshold=10.0):
+    """
+    Compute accuracy based on a threshold:
+    Counts predictions within +/- threshold as correct.
+    """
+    correct = np.abs(y_true - y_pred) < threshold
+    accuracy = np.mean(correct) * 100  # Accuracy in percentage
+    return accuracy
+
 
 if __name__ == '__main__':
-    X_train, y_train, X_val, y_val, X_test, y_test, feature_scaler, target_scaler = preprocess_data()
+    # Preprocess the data
+    X_train, y_train, X_test, y_test, _, target_scaler = preprocess_data()
 
+    # Initialize the LSTM model with the same architecture as training
     input_dim = X_train.shape[2]
-    hidden_dims = [32, 16]  # Same as in training
-    output_dim = y_train.shape[1]
-    reg_lambda = 0.01
+    hidden_dims = [64, 32, 16]  # Match this with `train.py`
+    output_dim = 1
+    model = LSTM(input_dim, hidden_dims, output_dim, reg_lambda=0.001)
 
-    model = LSTM(input_dim, hidden_dims, output_dim, reg_lambda, dropout_rate=0.0)  # Disable dropout
-    load_model_parameters(model)
+    # Load the model parameters
+    print("Loading model parameters...")
+    load_model_parameters(model, num_layers=len(hidden_dims))
+    print("Model parameters loaded successfully.")
 
-    # Compute test predictions
-    predictions = []
-    for x_seq in X_test:
-        y_pred = model.forward(x_seq, training=False)
-        predictions.append(y_pred.item())
+    # Make predictions on the test set
+    print("Evaluating the model...")
+    y_pred_test = [model.forward(x_seq).item() for x_seq in X_test]
+    y_pred_test = np.array(y_pred_test).reshape(-1, 1)
+    y_pred_test = target_scaler.inverse_transform(y_pred_test)
+    y_test_original = target_scaler.inverse_transform(y_test.reshape(-1, 1))
 
-    predictions = np.array(predictions).reshape(-1, 1)
-    predictions = target_scaler.inverse_transform(predictions)
-    y_test_original = target_scaler.inverse_transform(y_test)
+    # Compute evaluation metrics
+    test_rmse = compute_rmse(y_test_original, y_pred_test)
+    test_accuracy = compute_accuracy(y_test_original, y_pred_test)
 
-    # Calculate RMSE
-    test_rmse = compute_rmse(y_test_original, predictions)
+    # Print evaluation results
+    print("\nEvaluation Results:")
+    print(f"Test RMSE: {test_rmse}")
+    print(f"Test Accuracy: {test_accuracy:.2f}%")
 
-    # Output parameters and test results
-    print("Parameters Chosen:")
-    print("Neural Net:")
-    print(f"Number of layers = {len(hidden_dims)}")
-    print(f"Neurons = {tuple(hidden_dims)}")
-    print("Error Function = RMSE")
-    print(f"Regularization Parameter = {reg_lambda}")
-    print(f"Train/Validation/Test Split = 70:15:15")
-    print(f"Size of dataset = {len(X_train) + len(X_val) + len(X_test)}")
-    print("\nResults:")
-    print(f"Test RMSE = {test_rmse}")
+    # Display a few predictions
+    print("\nSample Predictions:")
+    for i in range(10):
+        print(f"Actual: {y_test_original[i][0]:.2f}, Predicted: {y_pred_test[i][0]:.2f}")
