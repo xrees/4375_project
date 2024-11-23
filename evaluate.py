@@ -40,42 +40,38 @@ def compute_accuracy(y_true, y_pred, threshold=10.0):
     Counts predictions within +/- threshold as correct.
     """
     correct = np.abs(y_true - y_pred) < threshold
-    accuracy = np.mean(correct) * 100  # Accuracy in percentage
+    accuracy = np.mean(correct) * 100 
     return accuracy
 
 
 if __name__ == '__main__':
-    # Preprocess the data
     X_train, y_train, X_test, y_test, _, target_scaler = preprocess_data()
 
-    # Initialize the LSTM model with the same architecture as training
+    # starting LSTM model w/ training architecture
     input_dim = X_train.shape[2]
-    hidden_dims = [64, 32, 16]  # Match this with `train.py`
+    hidden_dims = [64, 32, 16] 
     output_dim = 1
     model = LSTM(input_dim, hidden_dims, output_dim, reg_lambda=0.001)
 
-    # Load the model parameters
+    # model params
     print("Loading model parameters...")
     load_model_parameters(model, num_layers=len(hidden_dims))
     print("Model parameters loaded successfully.")
 
-    # Make predictions on the test set
+    # predictions
     print("Evaluating the model...")
     y_pred_test = [model.forward(x_seq).item() for x_seq in X_test]
     y_pred_test = np.array(y_pred_test).reshape(-1, 1)
     y_pred_test = target_scaler.inverse_transform(y_pred_test)
     y_test_original = target_scaler.inverse_transform(y_test.reshape(-1, 1))
 
-    # Compute evaluation metrics
+    # evaluation
     test_rmse = compute_rmse(y_test_original, y_pred_test)
     test_accuracy = compute_accuracy(y_test_original, y_pred_test)
-
-    # Print evaluation results
     print("\nEvaluation Results:")
     print(f"Test RMSE: {test_rmse}")
     print(f"Test Accuracy: {test_accuracy:.2f}%")
 
-    # Display a few predictions
     print("\nSample Predictions:")
     for i in range(10):
         print(f"Actual: {y_test_original[i][0]:.2f}, Predicted: {y_pred_test[i][0]:.2f}")
